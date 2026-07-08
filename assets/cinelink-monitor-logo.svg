@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">CineLink Monitor logo</title>
+  <desc id="desc">A dark camera monitor with a cyan waveform and USB-C cable mark.</desc>
+  <rect width="1024" height="1024" rx="212" fill="#071013"/>
+  <rect x="122" y="250" width="780" height="520" rx="82" fill="#102126"/>
+  <rect x="190" y="316" width="644" height="356" rx="48" fill="#162E34"/>
+  <path d="M286 532h116l62-128 102 254 74-126h124" fill="none" stroke="#49D3C9" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M370 800h284v60H370z" fill="#E8F8F6"/>
+  <path d="M468 704h112v96H468z" fill="#49D3C9"/>
+  <path d="M800 345c96 0 142 48 142 140v104" fill="none" stroke="#E8F8F6" stroke-width="42" stroke-linecap="round"/>
+  <circle cx="806" cy="218" r="58" fill="#F24E3D"/>
+</svg>
+
