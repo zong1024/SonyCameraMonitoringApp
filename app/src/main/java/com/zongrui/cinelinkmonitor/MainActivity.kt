@@ -2,7 +2,10 @@ package com.zongrui.cinelinkmonitor
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -14,6 +17,7 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -30,6 +34,7 @@ import com.zongrui.cinelinkmonitor.render.LutPreviewEffect
 import com.zongrui.cinelinkmonitor.settings.MonitorMode
 import com.zongrui.cinelinkmonitor.settings.RenderSettings
 import com.zongrui.cinelinkmonitor.settings.RenderSettingsStore
+import com.zongrui.cinelinkmonitor.ui.LandscapeMonitorLayout
 import java.io.IOException
 
 class MainActivity : CameraActivity() {
@@ -46,6 +51,7 @@ class MainActivity : CameraActivity() {
     private lateinit var settingsStore: RenderSettingsStore
 
     private val handler = Handler(Looper.getMainLooper())
+    private val layoutSpec = LandscapeMonitorLayout.Default
     private var settings = RenderSettings.default()
     private var currentLut: CubeLut? = null
     private var lutEffect: LutPreviewEffect? = null
@@ -59,6 +65,8 @@ class MainActivity : CameraActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         requestWindowFeature(Window.FEATURE_NO_TITLE)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         super.onCreate(savedInstanceState)
         enterImmersiveMode()
     }
@@ -73,9 +81,7 @@ class MainActivity : CameraActivity() {
         previewContainer = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
         }
-        previewView = AspectRatioTextureView(this).apply {
-            setBackgroundColor(Color.BLACK)
-        }
+        previewView = AspectRatioTextureView(this)
         previewContainer.addView(
             previewView,
             FrameLayout.LayoutParams(
@@ -89,10 +95,12 @@ class MainActivity : CameraActivity() {
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
-            ),
+            ).apply {
+                rightMargin = dp(layoutSpec.previewRightInsetDp)
+            },
         )
         root.addView(buildTopBar())
-        root.addView(buildBottomBar())
+        root.addView(buildControlRail())
         root.addView(buildHint())
         return root
     }
@@ -128,19 +136,20 @@ class MainActivity : CameraActivity() {
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(10), dp(14), dp(10))
+            setPadding(dp(14), dp(8), dp(14), dp(8))
             setBackgroundColor(Color.argb(176, 6, 12, 15))
         }
         val title = TextView(this).apply {
             text = "CineLink Monitor"
             setTextColor(Color.WHITE)
             textSize = 16f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            typeface = Typeface.DEFAULT_BOLD
         }
         statusText = TextView(this).apply {
             setTextColor(Color.rgb(143, 227, 218))
-            textSize = 13f
+            textSize = 12f
             gravity = Gravity.END
+            maxLines = 2
         }
         top.addView(title, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         top.addView(statusText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
@@ -148,39 +157,59 @@ class MainActivity : CameraActivity() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.TOP,
-        ).let { params -> top.apply { layoutParams = params } }
+        ).apply {
+            leftMargin = dp(12)
+            topMargin = dp(10)
+            rightMargin = dp(layoutSpec.overlayRightInsetDp)
+        }.let { params -> top.apply { layoutParams = params } }
     }
 
-    private fun buildBottomBar(): View {
-        val bottom = LinearLayout(this).apply {
+    private fun buildControlRail(): View {
+        val rail = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(10), dp(12), dp(12))
-            setBackgroundColor(Color.argb(196, 6, 12, 15))
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(12), dp(14), dp(12), dp(14))
+            setBackgroundColor(Color.argb(230, 6, 12, 15))
         }
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
+
+        val title = TextView(this).apply {
+            text = "监看控制"
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            typeface = Typeface.DEFAULT_BOLD
+        }
+        val lutLabel = TextView(this).apply {
+            text = "LUT 强度"
+            setTextColor(Color.rgb(164, 188, 190))
+            textSize = 12f
             gravity = Gravity.CENTER
         }
+
         modeButton = monitorButton()
         desqueezeButton = monitorButton()
         lutButton = monitorButton()
         lutImportButton = monitorButton("导入 LUT")
-        row.addView(modeButton, LinearLayout.LayoutParams(0, dp(44), 1f))
-        row.addView(desqueezeButton, LinearLayout.LayoutParams(0, dp(44), 1f))
-        row.addView(lutButton, LinearLayout.LayoutParams(0, dp(44), 1f))
-        row.addView(lutImportButton, LinearLayout.LayoutParams(0, dp(44), 1f))
         lutIntensity = SeekBar(this).apply {
             max = 100
-            progressTintList = android.content.res.ColorStateList.valueOf(Color.rgb(73, 211, 201))
-            thumbTintList = android.content.res.ColorStateList.valueOf(Color.rgb(232, 248, 246))
+            progressTintList = ColorStateList.valueOf(Color.rgb(73, 211, 201))
+            thumbTintList = ColorStateList.valueOf(Color.rgb(232, 248, 246))
         }
-        bottom.addView(row)
-        bottom.addView(lutIntensity, LinearLayout.LayoutParams.MATCH_PARENT, dp(40))
+
+        rail.addView(title, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)))
+        rail.addView(modeButton, controlButtonParams(topMargin = 12))
+        rail.addView(desqueezeButton, controlButtonParams(topMargin = 8))
+        rail.addView(lutButton, controlButtonParams(topMargin = 8))
+        rail.addView(lutImportButton, controlButtonParams(topMargin = 8))
+        rail.addView(lutLabel, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(28)).apply {
+            topMargin = dp(12)
+        })
+        rail.addView(lutIntensity, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(42)))
+
         return FrameLayout.LayoutParams(
+            dp(layoutSpec.controlRailWidthDp),
             FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.BOTTOM,
-        ).let { params -> bottom.apply { layoutParams = params } }
+            Gravity.END,
+        ).let { params -> rail.apply { layoutParams = params } }
     }
 
     private fun buildHint(): View {
@@ -196,7 +225,10 @@ class MainActivity : CameraActivity() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.CENTER,
-        ).let { params -> hintText.apply { layoutParams = params } }
+        ).apply {
+            leftMargin = dp(28)
+            rightMargin = dp(layoutSpec.overlayRightInsetDp)
+        }.let { params -> hintText.apply { layoutParams = params } }
     }
 
     private fun bindControls() {
@@ -325,8 +357,15 @@ class MainActivity : CameraActivity() {
             text = textValue
             isAllCaps = false
             setTextColor(Color.rgb(232, 248, 246))
-            textSize = 13f
+            textSize = 12f
+            maxLines = 2
+            includeFontPadding = false
             setBackgroundColor(Color.rgb(16, 33, 38))
+        }
+
+    private fun controlButtonParams(topMargin: Int): LinearLayout.LayoutParams =
+        LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(46)).apply {
+            this.topMargin = dp(topMargin)
         }
 
     private fun RenderSettings.copySettings(
