@@ -6,6 +6,7 @@ import android.content.pm.ActivityInfo
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.hardware.usb.UsbDevice
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -23,9 +24,15 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
+import com.jiangdg.ausbc.CameraClient
 import com.jiangdg.ausbc.base.CameraActivity
+import com.jiangdg.ausbc.callback.IDeviceConnectCallBack
+import com.jiangdg.ausbc.camera.CameraUvcStrategy
+import com.jiangdg.ausbc.camera.bean.CameraRequest
 import com.jiangdg.ausbc.widget.AspectRatioTextureView
 import com.jiangdg.ausbc.widget.IAspectRatio
+import com.serenegiant.usb.USBMonitor
+import com.zongrui.cinelinkmonitor.camera.UvcMonitorConfig
 import com.zongrui.cinelinkmonitor.lut.CubeLut
 import com.zongrui.cinelinkmonitor.lut.CubeLutParseException
 import com.zongrui.cinelinkmonitor.lut.CubeLutParser
@@ -52,9 +59,55 @@ class MainActivity : CameraActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val layoutSpec = LandscapeMonitorLayout.Default
+    private val uvcStrategy: CameraUvcStrategy by lazy {
+        CameraUvcStrategy(this).apply {
+            setDeviceConnectStatusListener(usbStatusCallback)
+        }
+    }
+    private val uvcCameraClient: CameraClient by lazy {
+        CameraClient.newBuilder(this)
+            .setEnableGLES(true)
+            .setCameraStrategy(uvcStrategy)
+            .setCameraRequest(
+                CameraRequest.Builder()
+                    .setPreviewWidth(UvcMonitorConfig.DEFAULT_PREVIEW_WIDTH)
+                    .setPreviewHeight(UvcMonitorConfig.DEFAULT_PREVIEW_HEIGHT)
+                    .create(),
+            )
+            .openDebug(true)
+            .build()
+    }
     private var settings = RenderSettings.default()
     private var currentLut: CubeLut? = null
     private var lutEffect: LutPreviewEffect? = null
+    private var usbStatus = "等待 USB UVC 信号 · A7C II"
+
+    private val usbStatusCallback = object : IDeviceConnectCallBack {
+        override fun onAttachDev(device: UsbDevice?) {
+            val label = device?.usbLabel() ?: "USB 设备"
+            showUsbStatus("检测到 $label，等待 USB 授权")
+        }
+
+        override fun onDetachDec(device: UsbDevice?) {
+            val label = device?.usbLabel() ?: "USB 设备"
+            showUsbStatus("$label 已断开")
+        }
+
+        override fun onConnectDev(device: UsbDevice?, ctrlBlock: USBMonitor.UsbControlBlock?) {
+            val label = device?.usbLabel() ?: "USB UVC"
+            showUsbStatus("$label 已授权，正在打开预览")
+        }
+
+        override fun onDisConnectDec(device: UsbDevice?, ctrlBlock: USBMonitor.UsbControlBlock?) {
+            val label = device?.usbLabel() ?: "USB UVC"
+            showUsbStatus("$label 预览连接已关闭")
+        }
+
+        override fun onCancelDev(device: UsbDevice?) {
+            val label = device?.usbLabel() ?: "USB 设备"
+            showUsbStatus("已取消 $label 的 USB 授权")
+        }
+    }
 
     private val statusTicker = object : Runnable {
         override fun run() {
@@ -124,6 +177,8 @@ class MainActivity : CameraActivity() {
     override fun getCameraView(): IAspectRatio = previewView
 
     override fun getCameraViewContainer(): ViewGroup = previewContainer
+
+    override fun getCameraClient(): CameraClient = uvcCameraClient
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -322,7 +377,7 @@ class MainActivity : CameraActivity() {
         statusText.text = if (opened) {
             "USB Streaming 已连接 · ${settings.monitorMode.name} · LUT ${if (settings.lutEnabled) "ON" else "OFF"}"
         } else {
-            "等待 USB UVC 信号 · A7C II"
+            usbStatus
         }
         hintText.visibility = if (opened) View.GONE else View.VISIBLE
     }
@@ -331,6 +386,17 @@ class MainActivity : CameraActivity() {
         hintText.text = message
         hintText.visibility = View.VISIBLE
         handler.postDelayed({ refreshStatus() }, 2600)
+    }
+
+    private fun showUsbStatus(message: String) {
+        handler.post {
+            usbStatus = message
+            if (::hintText.isInitialized && getCameraClient().isCameraOpened() != true) {
+                hintText.text = message
+                hintText.visibility = View.VISIBLE
+            }
+            refreshStatus()
+        }
     }
 
     private fun enterImmersiveMode() {
@@ -367,6 +433,8 @@ class MainActivity : CameraActivity() {
         LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(46)).apply {
             this.topMargin = dp(topMargin)
         }
+
+    private fun UsbDevice.usbLabel(): String = "VID ${vendorId.toString(16)} / PID ${productId.toString(16)}"
 
     private fun RenderSettings.copySettings(
         monitorMode: MonitorMode = this.monitorMode,
