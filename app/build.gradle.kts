@@ -12,8 +12,8 @@ android {
         // AUSBC 3.2.7's USBMonitor uses legacy dynamic receiver registration.
         // Target 33 keeps the side-loaded monitor compatible on Android 14+ until the UVC stack is patched.
         targetSdk = 33
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

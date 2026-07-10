@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.hardware.usb.UsbDevice
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -74,7 +75,11 @@ class MainActivity : CameraActivity() {
                     .setPreviewHeight(UvcMonitorConfig.DEFAULT_PREVIEW_HEIGHT)
                     .create(),
             )
-            .openDebug(true)
+            .apply {
+                if (UvcMonitorConfig.hasBundledNativeUvc(Build.SUPPORTED_ABIS.asIterable())) {
+                    openDebug(true)
+                }
+            }
             .build()
     }
     private var settings = RenderSettings.default()
